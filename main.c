@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
+#define STR_SIZE 1000
 
 int PushPullMessage(char *str_msg, char *str_cv, int *str_pos, int isRead);
 
@@ -16,12 +17,37 @@ long SERVER_PORT;
 
 void deallocMem()
 {
+    for (int i = 0; i < arrayLen; i++)
+    {
+        free(theArray[i]);
+    }
     free(theArray);
+    free(SERVER_IP);
+}
+
+void buildArray()
+{
+    theArray = (char **)malloc(arrayLen * sizeof(char *));
+
+    for (int i = 0; i < arrayLen; i++)
+    {
+        theArray[i] = (char *)malloc(STR_SIZE * sizeof(char));
+
+        sprintf(theArray[i], "String [%d]: initial value", i);
+
+        printf("%s\n", theArray[i]);
+    }
 }
 
 int main(int argc, char *argv[])
 {
     // double start, finish, elapsed;
+
+    if (argc < 4)
+    {
+        fprintf(stderr, "Usage: %s <arrayLen> <server_ip> <server_port>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
 
     SERVER_IP = malloc(strlen(argv[2]) + 1);
     if (!SERVER_IP)
@@ -36,10 +62,14 @@ int main(int argc, char *argv[])
 
     printf("ArrayLen: %d\n", arrayLen);
     printf("SERVER_IP: %s\n", SERVER_IP);
-    printf("SERVER_PORT: %ld\n", SERVER_PORT);
+    printf("SERVER_PORT: %ld\n\n", SERVER_PORT);
+
+    buildArray();
 
     // GET_TIME(start);
 
     // GET_TIME(finish);
     // elapsed = finish - start;
+
+    deallocMem();
 }
