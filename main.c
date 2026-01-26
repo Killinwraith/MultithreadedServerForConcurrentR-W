@@ -1,18 +1,17 @@
 #include "main.h"
 #include "common.h"
 #include "timer.h"
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <errno.h>
 
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define STR_SIZE 1000
 
@@ -42,9 +41,12 @@ void buildArray()
     }
 }
 
+// [TO-DO: Add beef]
+void *client_handler(void *arg);
+
 int main(int argc, char *argv[])
 {
-    double start, finish, elapsed;
+    // double start, finish;
 
     if (argc < 4)
     {
@@ -69,8 +71,9 @@ int main(int argc, char *argv[])
 
     buildArray();
 
-    int sockfd, connfd, len;
-    struct sockaddr_in servaddr, cli;
+    int sockfd, connfd;
+    struct sockaddr_in servaddr;
+    // pthread_t pthread_handle;
 
     // Socket create and verification
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -107,13 +110,12 @@ int main(int argc, char *argv[])
 
             while (1) // loop infinity
             {
-                for (int i = 0; i < 20; i++) // can support 20 clients at a time
-                {
-                    connfd = accept(sockfd, NULL, NULL);
-                    printf("Connected to client %d\n", connfd);
+                // Mutlithreaded server setup
+                connfd = accept(sockfd, NULL, NULL);
+                printf("Connected to client %d\n", connfd);
 
-                    // HERE IS WHERE WE NEED TO CREATE THE PTHREAD
-                }
+                // HERE IS WHERE WE NEED TO CREATE THE PTHREAD - Below is just an example...the client_handler is what we need to use for the Pthread function
+                // pthread_create(*pthread_handle, NULL, client_handler, connfd);
             }
             close(sockfd);
         }
@@ -123,10 +125,9 @@ int main(int argc, char *argv[])
         printf("socket creation failed\n");
     }
 
-    GET_TIME(start);
+    // GET_TIME(start);
 
-    GET_TIME(finish);
-    elapsed = finish - start;
+    // GET_TIME(finish);
 
     deallocMem();
 }
