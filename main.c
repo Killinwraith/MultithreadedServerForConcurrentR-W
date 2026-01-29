@@ -111,6 +111,9 @@ void buildArray()
 // [TO-DO: Add beef]
 void *client_handler(void *arg){
     // this is to used in the pthread_create function to handle each client connection
+    int connfd = (int)(long)arg;
+    char buffer[STR_SIZE];
+    
 
 }
 
@@ -184,7 +187,7 @@ int main(int argc, char *argv[])
                 // Mutlithreaded server setup
                 connfd = accept(sockfd, NULL, NULL);
                 printf("Connected to client %d\n", connfd);
-
+                // we need to create a pthread as multiple clients can connect to the server concurrently
                 // HERE IS WHERE WE NEED TO CREATE THE PTHREAD - Below is just an example...the client_handler is what we need to use for the Pthread function
                 pthread_create(&pthread_handle, NULL, client_handler, connfd);
             }
