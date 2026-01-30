@@ -114,9 +114,10 @@ void *client_handler(void *arg){
     // this is to used in the pthread_create function to handle each client connection
     int connfd = (int)(long)arg;
     char str_msg[STR_SIZE];
-    
+    rw_mutex_t rw_mutex;
     int str_pos;
     ClientRequest rqst;
+    init_rw_mutex(&rw_mutex); // initialize the rw_mutex
     // if(connect(connfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0){
         if (read(connfd, str_msg, STR_SIZE) < 0){
             int errsv = errno;
@@ -125,7 +126,7 @@ void *client_handler(void *arg){
         }
         ParseMsg(str_msg, &rqst); // write to the rqst structure
         // check for read or write request
-        if(rqst.read == 1){    // read request
+        if(rqst.is_read == 1){    // read request
             rw_reader_lock(&rw_mutex);
             getContent(rqst.msg, rqst.pos, theArray);
             rw_unlock(&rw_mutex);
