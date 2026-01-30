@@ -21,6 +21,7 @@ char **theArray;
 int arrayLen;
 char *SERVER_IP;
 long SERVER_PORT;
+
 typedef struct {
     pthread_t pthread_handle;
     pthread_mutex_t mutex;
@@ -112,8 +113,47 @@ void buildArray()
 void *client_handler(void *arg){
     // this is to used in the pthread_create function to handle each client connection
     int connfd = (int)(long)arg;
-    char buffer[STR_SIZE];
+    char str_msg[STR_SIZE];
     
+    int str_pos;
+    ClientRequest rqst;
+    // if(connect(connfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0){
+        if (read(connfd, str_msg, STR_SIZE) < 0){
+            int errsv = errno;
+            printf("read() failed with errno = %d. \n", errsv);
+            exit(errsv);
+        }
+        ParseMsg(str_msg, &rqst); // write to the rqst structure
+        // check for read or write request
+        if(rqst.read == 1){    // read request
+            rw_reader_lock(&rw_mutex);
+            getContent(rqst.msg, rqst.pos, theArray);
+            rw_unlock(&rw_mutex);
+            memcpy(str_msg, rqst.msg, STR_SIZE); // send back to client
+            if (write(connfd, str_msg, STR_SIZE) < 0){
+                int errsv = errno;
+                printf("write() failed with errno = %d. \n", errsv);
+                exit(errsv);
+            }
+            // close the connection?
+            // close(connfd);
+        }
+        else{   //  write request
+            rw_writer_lock(&rw_mutex);
+            setContent(rqst.msg, rqst.pos, theArray);
+            getContent(rqst.msg, rqst.pos, theArray); // read back the content to confirm
+            rw_unlock(&rw_mutex);
+            if (write(connfd, str_msg, STR_SIZE) < 0){
+                int errsv = errno;
+                printf("write() failed with errno = %d. \n", errsv);
+                exit(errsv);
+            }
+            // close the connection?
+            // close(connfd);
+        }
+    // }
+    close(connfd);
+    pthread_exit(NULL); // end thread and create new one for next client
 
 }
 
@@ -190,6 +230,7 @@ int main(int argc, char *argv[])
                 // we need to create a pthread as multiple clients can connect to the server concurrently
                 // HERE IS WHERE WE NEED TO CREATE THE PTHREAD - Below is just an example...the client_handler is what we need to use for the Pthread function
                 pthread_create(&pthread_handle, NULL, client_handler, connfd);
+                // how are were we going to store the pthread handles? in a list?
             }
             close(sockfd);
         }
