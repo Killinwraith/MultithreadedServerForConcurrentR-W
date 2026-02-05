@@ -37,7 +37,7 @@ void init_latency_mutex(latency_mutex_t *latency_mutex)
 }
 
 typedef struct {
-    pthread_t pthread_handle;
+    // pthread_t pthread_handle;
     pthread_mutex_t mutex;
     pthread_cond_t readers_active_cond;
     pthread_cond_t writers_active_cond;
@@ -47,6 +47,8 @@ typedef struct {
 } rw_mutex_t;
 
 rw_mutex_t rw_mutex;
+
+pthread_t thread_handles[COM_NUM_REQUEST];
 
 void init_rw_mutex(rw_mutex_t *rw_mutex) // initialize the rw_mutex
 {
@@ -210,7 +212,6 @@ void *client_handler(void *arg){
 
         GET_TIME(end);
         diff = end - start;
-        printf("Time: %f\n", diff);
 
         pthread_mutex_lock(&latency_mutex.mutex);
         latency_mutex.latencies[latency_mutex.latency_num] = diff;
@@ -299,13 +300,17 @@ int main(int argc, char *argv[])
 
             while (1) // loop infinity
             {
-                // Mutlithreaded server setup
-                connfd = accept(sockfd, NULL, NULL);
-                printf("Connected to client %d\n", connfd);
-                // we need to create a pthread as multiple clients can connect to the server concurrently
-                // HERE IS WHERE WE NEED TO CREATE THE PTHREAD - Below is just an example...the client_handler is what we need to use for the Pthread function
-                pthread_create(&rw_mutex.pthread_handle, NULL, client_handler, (void*)(long)connfd);
-                // how are were we going to store the pthread handles? in a list?
+                for(int i = 0; i < 1000; ++i)
+                {
+                    // Mutlithreaded server setup
+                    connfd = accept(sockfd, NULL, NULL);
+                    pthread_create(&thread_handles[i], NULL, client_handler, (void*)(long)connfd);
+                }
+            }
+
+            for(int i = 0; i < 1000; ++i)
+            {
+                pthread_join(thread_handles[i], NULL);
             }
             close(sockfd);
         }
