@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-g -Wall
 LDFLAGS=-lpthread -lm
 
-all: main client attacker
+all: clean main client attacker
 
 main: main.c common.h timer.h
 	$(CC) $(CFLAGS) main.c -o main $(LDFLAGS)
@@ -23,5 +23,5 @@ runAttacker: attacker
 	./attacker 100 127.0.0.1 5001
 
 clean:
-	rm -f main client attacker
+	rm -f main client attacker server_output_time_aggregated
 	rm -rf *.dSYM
