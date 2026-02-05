@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 
             while (1) // loop infinity
             {
-                for(int i = 0; i < 1000; ++i)
+                for(int i = 0; i < COM_NUM_REQUEST; ++i)
                 {
                     // Mutlithreaded server setup
                     connfd = accept(sockfd, NULL, NULL);
@@ -308,7 +308,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            for(int i = 0; i < 1000; ++i)
+            for(int i = 0; i < COM_NUM_REQUEST; ++i)
             {
                 pthread_join(thread_handles[i], NULL);
             }
