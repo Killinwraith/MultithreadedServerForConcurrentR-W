@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <string.h>
 
 #include <sys/types.h>
@@ -15,6 +16,8 @@
 #include <arpa/inet.h>
 
 #define STR_SIZE 1000
+
+sem_t thread_sem;
 
 int PushPullMessage(char *str_msg, char *str_cv, int *str_pos, int isRead);
 
@@ -194,6 +197,7 @@ void *client_handler(void *arg)
     if (rqst.pos < 0 || rqst.pos >= arrayLen)
     {
         close(connfd);
+        sem_post(&thread_sem);
 
         pthread_mutex_lock(&peak_mutex);
         active_threads--;
@@ -256,7 +260,6 @@ void *client_handler(void *arg)
     active_threads--;
     pthread_mutex_unlock(&peak_mutex);
 
-    // }
     close(connfd);
     pthread_exit(NULL); // end thread and create new one for next client
 }
@@ -330,9 +333,18 @@ int main(int argc, char *argv[])
 
             while (1) // loop infinity
             {
+
+                sem_wait(&thread_sem);
+
                 // Mutlithreaded server setup
                 connfd = accept(sockfd, NULL, NULL);
                 // printf("Connected to client %d\n", connfd);
+
+                if (connfd < 0)
+                {
+                    sem_post(&thread_sem);
+                    continue;
+                }
 
                 pthread_mutex_lock(&peak_mutex);
                 active_threads++;
