@@ -42,7 +42,6 @@ void init_latency_mutex(latency_mutex_t *latency_mutex)
 
 typedef struct
 {
-    // pthread_t pthread_handle;
     pthread_mutex_t mutex;
     pthread_cond_t readers_active_cond;
     pthread_cond_t writers_active_cond;
@@ -53,7 +52,7 @@ typedef struct
 
 rw_mutex_t rw_mutex;
 
-void init_rw_mutex(rw_mutex_t *rw_mutex) // initialize the rw_mutex
+void init_rw_mutex(rw_mutex_t *rw_mutex)
 {
     rw_mutex->readers_active = 0;
     rw_mutex->writers_active = 0;
@@ -70,9 +69,8 @@ void rw_writer_lock(rw_mutex_t *rw_mutex)
     rw_mutex->pending_writers++;
 
     while (rw_mutex->readers_active > 0 || rw_mutex->writers_active > 0)
-    {
         pthread_cond_wait(&rw_mutex->writers_active_cond, &rw_mutex->mutex); // wait until there is no active reader or writer
-    }
+
     rw_mutex->writers_active++;
     rw_mutex->pending_writers--;
     pthread_mutex_unlock(&rw_mutex->mutex);
@@ -83,9 +81,8 @@ void rw_reader_lock(rw_mutex_t *rw_mutex)
 {
     pthread_mutex_lock(&rw_mutex->mutex);
     while (rw_mutex->writers_active > 0 || rw_mutex->pending_writers > 0)
-    {
         pthread_cond_wait(&rw_mutex->readers_active_cond, &rw_mutex->mutex); // wait until there is no active writer or pending writer
-    }
+
     rw_mutex->readers_active++;
     pthread_mutex_unlock(&rw_mutex->mutex);
 }
