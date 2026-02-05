@@ -1,0 +1,26 @@
+Read me for ECE 420 Lab2 Script Kit
+Jan. 2026
+
+Content
+=====
+1. demos/simpleClient.c
+   demos/simpleServer.c
+   demos/run_simple.sh
+   ** A demo code for the client-server communication system  
+----
+2. demos/arrayRW.c       
+   ** A demo for the multi-threaded read and write with given API
+----
+3. client.c             
+   ** The provided client code in order to test the server speed
+----
+4. attacker.c           
+   ** The provided client code in order to verify the correctness of the data consistency
+----
+5. common.h
+   ** Provided server tools for message parsing, data read and write and saving the times
+----
+6. timer.h
+   ** Macro definition for the time measurement 
+=====
+Please also find the detailed instructions in the comments of the individual files.
