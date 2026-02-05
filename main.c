@@ -130,6 +130,7 @@ void buildArray()
     for (int i = 0; i < arrayLen; i++)
     {
         theArray[i] = (char *)malloc(STR_SIZE * sizeof(char));
+        sprintf(theArray[i], "String [%d]: initial value", i);
     }
 }
 
