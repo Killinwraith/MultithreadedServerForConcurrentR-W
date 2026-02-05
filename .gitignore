@@ -56,3 +56,7 @@ dkms.conf
 
 # executables
 main
+attacker
+client
+server_output_time_aggregated
+*.log
