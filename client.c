@@ -12,6 +12,7 @@
 #include<pthread.h>
 #include <errno.h>
 #include "common.h"
+#include "timer.h"
 
 unsigned int* seed_;
 struct sockaddr_in sock_var_;
@@ -34,6 +35,7 @@ void *Request(void* rank) {
         int is_read = rand_r(&seed_[my_rank]) % 100 < 70 ? 1 : 0;    // write with 30% probability
         sprintf(str_msg, "%d-%d-String[%d] has been modified by thread %ld", pos, is_read, pos, my_rank); // encode the message and control signal into a single string
         // Connect and request
+        
         PushPullMessage(str_msg, str_rcv);
         // Display
         if (1 == COM_IS_VERBOSE){
@@ -63,7 +65,7 @@ int main(int argc, char* argv[]){
     thread_handles = malloc(COM_CLIENT_THREAD_COUNT*sizeof(pthread_t)); 
     /* Initialize socket address and port*/
     sock_var_.sin_addr.s_addr=inet_addr(server_ip);
-    sock_var_.sin_port=server_port;
+    sock_var_.sin_port=htons(server_port);
     sock_var_.sin_family=AF_INET;
     /* Create threads */
     for (thread = 0; thread < COM_CLIENT_THREAD_COUNT; thread++)  
@@ -87,7 +89,7 @@ int PushPullMessage(char* str_msg, char* str_rcv){
     if(0 == connect(clientFileDiscriptor,(struct sockaddr*)&sock_var_,sizeof(sock_var_))){
         // Write
         if(0 > write(clientFileDiscriptor, str_msg, COM_BUFF_SIZE)){
-            int errsv = errno;
+        int errsv = errno;
             printf("write() failed with errno = %d. \n", errsv);
             exit(errsv);
         }
