@@ -23,6 +23,20 @@ char *SERVER_IP;
 long SERVER_PORT;
 
 typedef struct {
+    pthread_mutex_t mutex;
+    double latencies[COM_NUM_REQUEST];
+    int latency_num;
+} latency_mutex_t;
+
+latency_mutex_t latency_mutex;
+
+void init_latency_mutex(latency_mutex_t *latency_mutex)
+{
+    latency_mutex->latency_num = 0;
+    pthread_mutex_init(&latency_mutex->mutex, NULL);
+}
+
+typedef struct {
     pthread_t pthread_handle;
     pthread_mutex_t mutex;
     pthread_cond_t readers_active_cond;
@@ -36,8 +50,8 @@ rw_mutex_t rw_mutex;
 
 void init_rw_mutex(rw_mutex_t *rw_mutex) // initialize the rw_mutex
 {
-    //DEBUG
-    printf("Mutex initialized\n");
+    // //DEBUG
+    // printf("Mutex initialized\n");
     rw_mutex -> readers_active = 0;
     rw_mutex -> writers_active = 0;
     rw_mutex -> pending_writers = 0;
@@ -49,80 +63,82 @@ void init_rw_mutex(rw_mutex_t *rw_mutex) // initialize the rw_mutex
 // create a write lock
 void rw_writer_lock(rw_mutex_t *rw_mutex)
 {
-    //DEBUG
-    printf("Create write lock\n");
+    // //DEBUG
+    // printf("Create write lock\n");
     pthread_mutex_lock(&rw_mutex->mutex);
     rw_mutex->pending_writers++;
-    //DEBUG
-    printf("Pending writers: %d\n", rw_mutex->pending_writers);
+    // //DEBUG
+    // printf("Pending writers: %d\n", rw_mutex->pending_writers);
     while (rw_mutex->readers_active > 0 || rw_mutex->writers_active > 0)
     {
-        //DEBUG
-        printf("Waiting drives you crazy (writer)\n");
+        // //DEBUG
+        // printf("Waiting drives you crazy (writer)\n");
         pthread_cond_wait(&rw_mutex->writers_active_cond, &rw_mutex->mutex); // wait until there is no active reader or writer
     }
     rw_mutex->writers_active++;
-    //DEBUG
-    printf("Active writers: %d\n", rw_mutex->writers_active);
+    // //DEBUG
+    // printf("Active writers: %d\n", rw_mutex->writers_active);
     rw_mutex->pending_writers--;
     pthread_mutex_unlock(&rw_mutex->mutex);
-    printf("Write lock created\n");
+    // //DEBUG
+    // printf("Write lock created\n");
 }
 
 // create the reader lock
 void rw_reader_lock(rw_mutex_t *rw_mutex)
 {
-    //DEBUG
-    printf("Create read lock\n");
+    // //DEBUG
+    // printf("Create read lock\n");
     pthread_mutex_lock(&rw_mutex->mutex);
     while (rw_mutex->writers_active > 0 || rw_mutex->pending_writers > 0)
     {
-        printf("Waiting drives you crazy (reader)\n");
+        // //DEBUG
+        // printf("Waiting drives you crazy (reader)\n");
         pthread_cond_wait(&rw_mutex->readers_active_cond, &rw_mutex->mutex); // wait until there is no active writer or pending writer
     }
     rw_mutex->readers_active++;
-    //DEBUG
-    printf("Active readers: %d\n", rw_mutex->readers_active);
+    // //DEBUG
+    // printf("Active readers: %d\n", rw_mutex->readers_active);
     pthread_mutex_unlock(&rw_mutex->mutex);
 }
 
 // unlock function for both reader and writer
 void rw_unlock(rw_mutex_t *rw_mutex){
-    //DEBUG
-    printf("Unlocking r/w\n");
+    // //DEBUG
+    // printf("Unlocking r/w\n");
     pthread_mutex_lock(&rw_mutex->mutex);
     if (rw_mutex->writers_active > 0)
     {
         rw_mutex->writers_active--;
-        //DEBUG
-        printf("New writers active: %d\n", rw_mutex->writers_active);
+        // //DEBUG
+        // printf("New writers active: %d\n", rw_mutex->writers_active);
     }
     else if (rw_mutex->readers_active > 0)
     {
         rw_mutex->readers_active--;
-        //DEBUG
-        printf("New readers active: %d\n", rw_mutex->readers_active);
+        // //DEBUG
+        // printf("New readers active: %d\n", rw_mutex->readers_active);
     }
     if (rw_mutex->pending_writers > 0)
     {
-        //DEBUG
-        printf("Writers pending: %d\n", rw_mutex->pending_writers);
+        // //DEBUG
+        // printf("Writers pending: %d\n", rw_mutex->pending_writers);
         if (rw_mutex->readers_active == 0 && rw_mutex->writers_active == 0)
         {
-            //DEBUG
-            printf("No readers or writers active, signal writers_active\n");
+            // //DEBUG
+            // printf("No readers or writers active, signal writers_active\n");
             pthread_cond_signal(&rw_mutex->writers_active_cond); // give priority to writers
         }
     }
     else
     {
-        //DEBUG
-        printf("No writers pending, signalling readers_active");
+        // //DEBUG
+        // printf("No writers pending, signalling readers_active");
         pthread_cond_broadcast(&rw_mutex->readers_active_cond); // wake up all readers that are waiting to read
     }
     pthread_mutex_unlock(&rw_mutex->mutex);
-    //DEBUG
-    printf("Mutex unlocked\n");
+    // //DEBUG
+    // printf("Mutex unlocked\n");
 }
 
 void deallocMem()
@@ -149,10 +165,13 @@ void *client_handler(void *arg){
     // this is to used in the pthread_create function to handle each client connection
     int connfd = (int)(long)arg;
     char str_msg[STR_SIZE];
-    rw_mutex_t rw_mutex;
+    // rw_mutex_t rw_mutex;
+
+    // Init variables for timing
+    double start, end, diff;
+
     // int str_pos;
     ClientRequest rqst;
-    init_rw_mutex(&rw_mutex); // initialize the rw_mutex
     // if(connect(connfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0){
         if (read(connfd, str_msg, STR_SIZE) < 0){
             int errsv = errno;
@@ -160,6 +179,7 @@ void *client_handler(void *arg){
             exit(errsv);
         }
         ParseMsg(str_msg, &rqst); // write to the rqst structure
+        GET_TIME(start);
         // check for read or write request
         if(rqst.is_read == 1){    // read request
             rw_reader_lock(&rw_mutex);
@@ -187,6 +207,22 @@ void *client_handler(void *arg){
             // close the connection?
             // close(connfd);
         }
+
+        GET_TIME(end);
+        diff = end - start;
+        printf("Time: %f\n", diff);
+
+        pthread_mutex_lock(&latency_mutex.mutex);
+        latency_mutex.latencies[latency_mutex.latency_num] = diff;
+        latency_mutex.latency_num++;
+        if(latency_mutex.latency_num == COM_NUM_REQUEST)
+        {
+            saveTimes(latency_mutex.latencies, COM_NUM_REQUEST);
+            latency_mutex.latency_num = 0;
+        }
+
+        pthread_mutex_unlock(&latency_mutex.mutex);
+
     // }
     close(connfd);
     pthread_exit(NULL); // end thread and create new one for next client
@@ -256,7 +292,10 @@ int main(int argc, char *argv[])
         else
         {
             printf("Server is listening\n");
-            pthread_mutex_init(&rw_mutex.mutex, NULL); // initialize the mutex as soon as the server starts working
+            // pthread_mutex_init(&rw_mutex.mutex, NULL); // initialize the mutex as soon as the server starts working
+
+            init_rw_mutex(&rw_mutex); // initialize the rw_mutex
+            init_latency_mutex(&latency_mutex);
 
             while (1) // loop infinity
             {

@@ -12,6 +12,7 @@
 #include<pthread.h>
 #include <errno.h>
 #include "common.h"
+#include "timer.h"
 
 unsigned int* seed_;
 struct sockaddr_in sock_var_;
@@ -34,6 +35,7 @@ void *Request(void* rank) {
         int is_read = rand_r(&seed_[my_rank]) % 100 < 70 ? 1 : 0;    // write with 30% probability
         sprintf(str_msg, "%d-%d-String[%d] has been modified by thread %ld", pos, is_read, pos, my_rank); // encode the message and control signal into a single string
         // Connect and request
+        
         PushPullMessage(str_msg, str_rcv);
         // Display
         if (1 == COM_IS_VERBOSE){
