@@ -242,7 +242,10 @@ int main(int argc, char *argv[])
     // Assign IP and PORT number
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr(SERVER_IP);
-    servaddr.sin_port = htons(SERVER_PORT);
+
+    // CLIENT CONNECTION FAIL -> BRUHHHH
+    // servaddr.sin_port = htons(SERVER_PORT);
+    servaddr.sin_port = SERVER_PORT;
 
     // Bind the created Socket to given IP and verify
     if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) >= 0)
