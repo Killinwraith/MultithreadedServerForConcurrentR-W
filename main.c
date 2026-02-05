@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -15,6 +16,8 @@
 
 #define STR_SIZE 1000
 
+sem_t thread_sem;
+
 int PushPullMessage(char *str_msg, char *str_cv, int *str_pos, int isRead);
 
 char **theArray;
@@ -22,7 +25,8 @@ int arrayLen;
 char *SERVER_IP;
 long SERVER_PORT;
 
-typedef struct {
+typedef struct
+{
     pthread_mutex_t mutex;
     double latencies[COM_NUM_REQUEST];
     int latency_num;
@@ -36,7 +40,8 @@ void init_latency_mutex(latency_mutex_t *latency_mutex)
     pthread_mutex_init(&latency_mutex->mutex, NULL);
 }
 
-typedef struct {
+typedef struct
+{
     pthread_t pthread_handle;
     pthread_mutex_t mutex;
     pthread_cond_t readers_active_cond;
@@ -52,9 +57,9 @@ void init_rw_mutex(rw_mutex_t *rw_mutex) // initialize the rw_mutex
 {
     // //DEBUG
     // printf("Mutex initialized\n");
-    rw_mutex -> readers_active = 0;
-    rw_mutex -> writers_active = 0;
-    rw_mutex -> pending_writers = 0;
+    rw_mutex->readers_active = 0;
+    rw_mutex->writers_active = 0;
+    rw_mutex->pending_writers = 0;
     pthread_mutex_init(&rw_mutex->mutex, NULL);
     pthread_cond_init(&rw_mutex->readers_active_cond, NULL);
     pthread_cond_init(&rw_mutex->writers_active_cond, NULL);
@@ -103,7 +108,8 @@ void rw_reader_lock(rw_mutex_t *rw_mutex)
 }
 
 // unlock function for both reader and writer
-void rw_unlock(rw_mutex_t *rw_mutex){
+void rw_unlock(rw_mutex_t *rw_mutex)
+{
     // //DEBUG
     // printf("Unlocking r/w\n");
     pthread_mutex_lock(&rw_mutex->mutex);
@@ -161,7 +167,8 @@ void buildArray()
 }
 
 // [TO-DO: Add beef]
-void *client_handler(void *arg){
+void *client_handler(void *arg)
+{
     // this is to used in the pthread_create function to handle each client connection
     int connfd = (int)(long)arg;
     char str_msg[STR_SIZE];
@@ -173,60 +180,65 @@ void *client_handler(void *arg){
     // int str_pos;
     ClientRequest rqst;
     // if(connect(connfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0){
-        if (read(connfd, str_msg, STR_SIZE) < 0){
+    if (read(connfd, str_msg, STR_SIZE) < 0)
+    {
+        int errsv = errno;
+        printf("read() failed with errno = %d. \n", errsv);
+        exit(errsv);
+    }
+    ParseMsg(str_msg, &rqst); // write to the rqst structure
+    GET_TIME(start);
+    // check for read or write request
+    if (rqst.is_read == 1)
+    { // read request
+        rw_reader_lock(&rw_mutex);
+        getContent(rqst.msg, rqst.pos, theArray);
+        rw_unlock(&rw_mutex);
+        memcpy(str_msg, rqst.msg, STR_SIZE); // send back to client
+        if (write(connfd, str_msg, STR_SIZE) < 0)
+        {
             int errsv = errno;
-            printf("read() failed with errno = %d. \n", errsv);
+            printf("write() failed with errno = %d. \n", errsv);
             exit(errsv);
         }
-        ParseMsg(str_msg, &rqst); // write to the rqst structure
-        GET_TIME(start);
-        // check for read or write request
-        if(rqst.is_read == 1){    // read request
-            rw_reader_lock(&rw_mutex);
-            getContent(rqst.msg, rqst.pos, theArray);
-            rw_unlock(&rw_mutex);
-            memcpy(str_msg, rqst.msg, STR_SIZE); // send back to client
-            if (write(connfd, str_msg, STR_SIZE) < 0){
-                int errsv = errno;
-                printf("write() failed with errno = %d. \n", errsv);
-                exit(errsv);
-            }
-            // close the connection?
-            // close(connfd);
-        }
-        else{   //  write request
-            rw_writer_lock(&rw_mutex);
-            setContent(rqst.msg, rqst.pos, theArray);
-            getContent(rqst.msg, rqst.pos, theArray); // read back the content to confirm
-            rw_unlock(&rw_mutex);
-            if (write(connfd, str_msg, STR_SIZE) < 0){
-                int errsv = errno;
-                printf("write() failed with errno = %d. \n", errsv);
-                exit(errsv);
-            }
-            // close the connection?
-            // close(connfd);
-        }
-
-        GET_TIME(end);
-        diff = end - start;
-        printf("Time: %f\n", diff);
-
-        pthread_mutex_lock(&latency_mutex.mutex);
-        latency_mutex.latencies[latency_mutex.latency_num] = diff;
-        latency_mutex.latency_num++;
-        if(latency_mutex.latency_num == COM_NUM_REQUEST)
+        // close the connection?
+        // close(connfd);
+    }
+    else
+    { //  write request
+        rw_writer_lock(&rw_mutex);
+        setContent(rqst.msg, rqst.pos, theArray);
+        getContent(rqst.msg, rqst.pos, theArray); // read back the content to confirm
+        rw_unlock(&rw_mutex);
+        if (write(connfd, str_msg, STR_SIZE) < 0)
         {
-            saveTimes(latency_mutex.latencies, COM_NUM_REQUEST);
-            latency_mutex.latency_num = 0;
+            int errsv = errno;
+            printf("write() failed with errno = %d. \n", errsv);
+            exit(errsv);
         }
+        // close the connection?
+        // close(connfd);
+    }
 
-        pthread_mutex_unlock(&latency_mutex.mutex);
+    GET_TIME(end);
+    diff = end - start;
+    printf("Time: %f\n", diff);
+
+    pthread_mutex_lock(&latency_mutex.mutex);
+    latency_mutex.latencies[latency_mutex.latency_num] = diff;
+    latency_mutex.latency_num++;
+    if (latency_mutex.latency_num == COM_NUM_REQUEST)
+    {
+        saveTimes(latency_mutex.latencies, COM_NUM_REQUEST);
+        latency_mutex.latency_num = 0;
+    }
+
+    pthread_mutex_unlock(&latency_mutex.mutex);
 
     // }
     close(connfd);
+    sem_post(&thread_sem);
     pthread_exit(NULL); // end thread and create new one for next client
-
 }
 
 int main(int argc, char *argv[])
@@ -256,9 +268,10 @@ int main(int argc, char *argv[])
 
     buildArray();
 
+    sem_init(&thread_sem, 0, COM_NUM_REQUEST);
+
     int sockfd, connfd;
     struct sockaddr_in servaddr;
-    
 
     // Socket create and verification
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -302,9 +315,12 @@ int main(int argc, char *argv[])
                 // Mutlithreaded server setup
                 connfd = accept(sockfd, NULL, NULL);
                 printf("Connected to client %d\n", connfd);
+
+                sem_wait(&thread_sem);
+
                 // we need to create a pthread as multiple clients can connect to the server concurrently
                 // HERE IS WHERE WE NEED TO CREATE THE PTHREAD - Below is just an example...the client_handler is what we need to use for the Pthread function
-                pthread_create(&rw_mutex.pthread_handle, NULL, client_handler, (void*)(long)connfd);
+                pthread_create(&rw_mutex.pthread_handle, NULL, client_handler, (void *)(long)connfd);
                 // how are were we going to store the pthread handles? in a list?
             }
             close(sockfd);

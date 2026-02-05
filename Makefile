@@ -14,13 +14,13 @@ attacker: attacker.c common.h
 	$(CC) $(CFLAGS) attacker.c -o attacker $(LDFLAGS)
 
 runServer: main
-	./main 10 127.0.0.1 5001
+	./main 100 127.0.0.1 5001
 
 runClient: client
-	./client 10 127.0.0.1 5001
+	./client 100 127.0.0.1 5001
 
 runAttacker: attacker
-	./attacker 10 127.0.0.1 5001
+	./attacker 100 127.0.0.1 5001
 
 clean:
 	rm -f main client attacker
