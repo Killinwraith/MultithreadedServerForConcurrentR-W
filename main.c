@@ -17,6 +17,11 @@
 
 int PushPullMessage(char *str_msg, char *str_cv, int *str_pos, int isRead);
 
+//DEBUG
+pthread_mutex_t peak_mutex = PTHREAD_MUTEX_INITIALIZER;
+int active_threads = 0;
+int peak_threads = 0;
+
 char **theArray;
 int arrayLen;
 char *SERVER_IP;
@@ -181,6 +186,19 @@ void *client_handler(void *arg){
             exit(errsv);
         }
         ParseMsg(str_msg, &rqst); // write to the rqst structure
+
+        //DEBUG
+        if(rqst.pos < 0 || rqst.pos >= arrayLen)
+        {
+            close(connfd);
+            pthread_mutex_lock(&peak_mutex);
+            active_threads--;
+            pthread_mutex_unlock(&peak_mutex);
+
+            pthread_exit(NULL);
+        }
+
+
         GET_TIME(start);
         // check for read or write request
         if(rqst.is_read == 1){    // read request
@@ -223,6 +241,11 @@ void *client_handler(void *arg){
         }
 
         pthread_mutex_unlock(&latency_mutex.mutex);
+
+        //DEBUG
+        pthread_mutex_lock(&peak_mutex);
+        active_threads--;
+        pthread_mutex_unlock(&peak_mutex);
 
     // }
     close(connfd);
@@ -304,6 +327,15 @@ int main(int argc, char *argv[])
                 {
                     // Mutlithreaded server setup
                     connfd = accept(sockfd, NULL, NULL);
+
+                    pthread_mutex_lock(&peak_mutex);
+                    active_threads++;
+                    if (active_threads > peak_threads)
+                        peak_threads = active_threads;
+                    printf("[SERVER] active=%d peak=%d\n",
+                        active_threads, peak_threads);
+                    pthread_mutex_unlock(&peak_mutex);
+
                     pthread_create(&thread_handles[i], NULL, client_handler, (void*)(long)connfd);
                 }
             }
