@@ -42,7 +42,7 @@ void init_latency_mutex(latency_mutex_t *latency_mutex)
 
 typedef struct
 {
-    pthread_t pthread_handle;
+    // pthread_t pthread_handle;
     pthread_mutex_t mutex;
     pthread_cond_t readers_active_cond;
     pthread_cond_t writers_active_cond;
@@ -181,7 +181,6 @@ void *client_handler(void *arg)
 
     GET_TIME(end);
     diff = end - start;
-    printf("Time: %f\n", diff);
 
     pthread_mutex_lock(&latency_mutex.mutex);
     latency_mutex.latencies[latency_mutex.latency_num] = diff;
@@ -269,9 +268,12 @@ int main(int argc, char *argv[])
             {
                 // Mutlithreaded server setup
                 connfd = accept(sockfd, NULL, NULL);
-                printf("Connected to client %d\n", connfd);
+                // printf("Connected to client %d\n", connfd);
                 sem_wait(&thread_sem);
-                pthread_create(&rw_mutex.pthread_handle, NULL, client_handler, (void *)(long)connfd);
+
+                pthread_t pthread_handle;
+                pthread_create(&pthread_handle, NULL, client_handler, (void *)(long)connfd);
+                pthread_detach(pthread_handle);
             }
             close(sockfd);
         }
